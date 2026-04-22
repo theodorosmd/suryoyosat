@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Suryoyo Sat — Live</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{background:#0a0a0f;color:#fff;font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center}
+    header{width:100%;max-width:1100px;display:flex;align-items:center;gap:14px;padding:18px 24px}
+    .logo{width:44px;height:44px;background:linear-gradient(135deg,#c8a415,#f0c930);border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:#000;letter-spacing:-1px;flex-shrink:0}
+    .channel-info h1{font-size:1.2rem;font-weight:700}
+    .channel-info p{font-size:.75rem;color:#888}
+    .live-badge{margin-left:auto;background:#e53535;color:#fff;font-size:.7rem;font-weight:700;letter-spacing:1px;padding:4px 10px;border-radius:4px;display:flex;align-items:center;gap:6px}
+    .live-dot{width:7px;height:7px;background:#fff;border-radius:50%;animation:pulse 1.4s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+    .player-wrapper{width:100%;max-width:1100px;padding:0 16px 32px}
+    .player-container{position:relative;background:#000;border-radius:14px;overflow:hidden;aspect-ratio:16/9;box-shadow:0 8px 40px rgba(0,0,0,.7)}
+    video{width:100%;height:100%;display:block;cursor:pointer}
+    .controls-overlay{position:absolute;bottom:0;left:0;right:0;padding:32px 16px 14px;background:linear-gradient(transparent,rgba(0,0,0,.85));opacity:0;transition:opacity .25s}
+    .player-container:hover .controls-overlay,.player-container.paused .controls-overlay{opacity:1}
+    .progress-bar{width:100%;height:4px;background:rgba(255,255,255,.2);border-radius:2px;margin-bottom:12px;overflow:hidden}
+    .progress-live{height:100%;background:linear-gradient(90deg,#c8a415,#f0c930);animation:liveBar 3s linear infinite;width:100%}
+    @keyframes liveBar{0%{transform:translateX(-100%)}100%{transform:translateX(0)}}
+    .controls-row{display:flex;align-items:center;gap:10px}
+    .ctrl-btn{background:none;border:none;color:#fff;cursor:pointer;padding:6px;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:background .15s}
+    .ctrl-btn:hover{background:rgba(255,255,255,.15)}
+    .ctrl-btn svg{width:22px;height:22px;fill:currentColor}
+    .volume-group{display:flex;align-items:center;gap:6px}
+    input[type=range]{-webkit-appearance:none;width:80px;height:4px;background:rgba(255,255,255,.3);border-radius:2px;outline:none;cursor:pointer}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:#f0c930;border-radius:50%}
+    .time-label{font-size:.75rem;color:rgba(255,255,255,.7);margin-left:4px;white-space:nowrap}
+    .spacer{flex:1}
+    .quality-btn{font-size:.7rem;font-weight:700;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.25);border-radius:4px;padding:4px 8px;background:none;cursor:pointer;transition:all .15s}
+    .quality-btn:hover{border-color:#f0c930;color:#f0c930}
+    .spinner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+    .spinner svg{width:56px;height:56px;animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .spinner.hidden{display:none}
+    .error-msg{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#ff6b6b}
+    .error-msg svg{width:48px;height:48px;fill:currentColor}
+    .error-msg p{font-size:.9rem;color:#aaa}
+    .retry-btn{margin-top:6px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:.85rem}
+    /* Mobile splash */
+    .splash{display:none;position:fixed;inset:0;background:#0a0a0f;z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:28px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+    .splash.on{display:flex}
+    .splash-logo{width:80px;height:80px;background:linear-gradient(135deg,#c8a415,#f0c930);border-radius:22px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:32px;color:#000}
+    .splash h2{font-size:1.6rem;font-weight:700}
+    .splash-live{background:#e53535;color:#fff;font-size:.7rem;font-weight:700;letter-spacing:1px;padding:4px 12px;border-radius:4px;display:flex;align-items:center;gap:6px}
+    .splash-live span{width:7px;height:7px;background:#fff;border-radius:50%;animation:pulse 1.4s infinite}
+    .play-ring{width:80px;height:80px;border:2px solid rgba(255,255,255,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-top:8px;animation:ring 1.8s ease-in-out infinite}
+    .play-ring svg{width:38px;height:38px;fill:#f0c930;margin-left:5px}
+    @keyframes ring{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(240,201,48,.3)}50%{transform:scale(1.06);box-shadow:0 0 0 16px rgba(240,201,48,0)}}
+    .splash small{color:#777;font-size:.8rem}
+  </style>
+</head>
+<body>
+
+<div class="splash" id="splash">
+  <div class="splash-logo">SS</div>
+  <h2>Suryoyo Sat</h2>
+  <div class="splash-live"><span></span>EN DIRECT</div>
+  <div class="play-ring"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+  <small>Appuyer pour regarder</small>
+</div>
+
+<header>
+  <div class="logo">SS</div>
+  <div class="channel-info"><h1>Suryoyo Sat</h1><p>Télévision en direct</p></div>
+  <div class="live-badge"><span class="live-dot"></span>LIVE</div>
+</header>
+
+<div class="player-wrapper">
+  <div class="player-container" id="pc">
+    <video id="video" playsinline></video>
+    <div class="spinner" id="spinner"><svg viewBox="0 0 50 50" fill="none" stroke="#f0c930" stroke-width="4"><circle cx="25" cy="25" r="20" stroke-dasharray="80 40"/></svg></div>
+    <div class="error-msg" id="err">
+      <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+      <strong>Flux indisponible</strong>
+      <p>Vérifiez votre connexion.</p>
+      <button class="retry-btn" onclick="load()">Réessayer</button>
+    </div>
+    <div class="controls-overlay">
+      <div class="progress-bar"><div class="progress-live"></div></div>
+      <div class="controls-row">
+        <button class="ctrl-btn" id="playBtn">
+          <svg id="iPause" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          <svg id="iPlay" viewBox="0 0 24 24" style="display:none"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <div class="volume-group">
+          <button class="ctrl-btn" id="muteBtn">
+            <svg id="iVol" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+            <svg id="iMute" viewBox="0 0 24 24" style="display:none"><path d="M16.5 12A4.5 4.5 0 0 0 14 7.97v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 0 0 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+          </button>
+          <input type="range" id="vol" min="0" max="1" step="0.05" value="1">
+        </div>
+        <span class="time-label">EN DIRECT</span>
+        <div class="spacer"></div>
+        <span class="quality-btn" id="qlabel">HD</span>
+        <button class="ctrl-btn" id="fsBtn">
+          <svg id="iFs" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+          <svg id="iEx" viewBox="0 0 24 24" style="display:none"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const SRC = "https://stream-hls.castr.net/66c326077b2f5e54001a1b38/live_e7ebb6206aa411efb410076c4d9f632e/tracks-v1a1/mono.ts.m3u8";
+  const v = document.getElementById('video'), pc = document.getElementById('pc');
+  const spinner = document.getElementById('spinner'), err = document.getElementById('err');
+  const playBtn = document.getElementById('playBtn'), iPause = document.getElementById('iPause'), iPlay = document.getElementById('iPlay');
+  const muteBtn = document.getElementById('muteBtn'), iVol = document.getElementById('iVol'), iMute = document.getElementById('iMute');
+  const volSlider = document.getElementById('vol'), fsBtn = document.getElementById('fsBtn');
+  const iFs = document.getElementById('iFs'), iEx = document.getElementById('iEx'), qlabel = document.getElementById('qlabel');
+  const splash = document.getElementById('splash');
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  let hls;
+
+  function showSpinner(x){spinner.classList.toggle('hidden',!x)}
+  function showErr(x){err.style.display=x?'flex':'none'}
+
+  function load(){
+    showErr(false); showSpinner(true);
+    if(hls){hls.destroy();hls=null}
+    if(Hls.isSupported()){
+      hls=new Hls({lowLatencyMode:true});
+      hls.loadSource(SRC); hls.attachMedia(v);
+      hls.on(Hls.Events.MANIFEST_PARSED,()=>{v.play().catch(()=>{});updateQ()});
+      hls.on(Hls.Events.ERROR,(_,d)=>{if(d.fatal){showSpinner(false);showErr(true)}});
+      hls.on(Hls.Events.LEVEL_LOADED,updateQ);
+    } else if(v.canPlayType('application/vnd.apple.mpegurl')){
+      v.src=SRC;
+    } else {showSpinner(false);showErr(true)}
+  }
+
+  function updateQ(){
+    if(!hls)return; const l=hls.levels[hls.currentLevel]; if(!l)return;
+    qlabel.textContent=l.height>=1080?'FHD':l.height>=720?'HD':l.height>=480?'SD':'LD';
+  }
+
+  function syncMute(){
+    const m=v.muted||v.volume===0;
+    iVol.style.display=m?'none':''; iMute.style.display=m?'':'none';
+  }
+
+  function fsEnter(){
+    if(isIOS){if(v.webkitEnterFullscreen)v.webkitEnterFullscreen()}
+    else if(pc.requestFullscreen)pc.requestFullscreen().catch(()=>{})
+    else if(pc.webkitRequestFullscreen)pc.webkitRequestFullscreen()
+  }
+
+  function fsExit(){
+    if(document.exitFullscreen)document.exitFullscreen()
+    else if(document.webkitExitFullscreen)document.webkitExitFullscreen()
+  }
+
+  // Mobile splash — tap triggers play + fullscreen synchronously (required for iOS)
+  if(isMobile){
+    splash.classList.add('on');
+    v.muted=true; // allow background preload
+    splash.addEventListener('click',()=>{
+      splash.classList.remove('on');
+      v.muted=false; v.volume=1; volSlider.value=1; syncMute();
+      // webkitEnterFullscreen MUST be called synchronously inside user gesture on iOS
+      fsEnter();
+      v.play().catch(()=>{});
+    },{once:true});
+  }
+
+  v.addEventListener('click',()=>v.paused?v.play():v.pause());
+  playBtn.addEventListener('click',()=>v.paused?v.play():v.pause());
+  v.addEventListener('play',()=>{iPause.style.display='';iPlay.style.display='none';pc.classList.remove('paused')});
+  v.addEventListener('pause',()=>{iPause.style.display='none';iPlay.style.display='';pc.classList.add('paused')});
+  v.addEventListener('waiting',()=>showSpinner(true));
+  v.addEventListener('playing',()=>showSpinner(false));
+  v.addEventListener('canplay',()=>showSpinner(false));
+
+  volSlider.addEventListener('input',()=>{v.volume=+volSlider.value;v.muted=v.volume===0;syncMute()});
+  muteBtn.addEventListener('click',()=>{
+    v.muted=!v.muted;
+    volSlider.value=v.muted?0:(+volSlider.value||0.7); v.volume=+volSlider.value;
+    syncMute();
+  });
+
+  fsBtn.addEventListener('click',()=>{
+    (!document.fullscreenElement&&!document.webkitFullscreenElement)?fsEnter():fsExit()
+  });
+  function syncFsIcons(){const f=!!(document.fullscreenElement||document.webkitFullscreenElement);iFs.style.display=f?'none':'';iEx.style.display=f?'':'none'}
+  document.addEventListener('fullscreenchange',syncFsIcons);
+  document.addEventListener('webkitfullscreenchange',syncFsIcons);
+
+  document.addEventListener('keydown',e=>{
+    if(e.target.tagName==='INPUT')return;
+    if(e.code==='Space'||e.code==='KeyK'){e.preventDefault();v.paused?v.play():v.pause()}
+    if(e.code==='KeyM')muteBtn.click();
+    if(e.code==='KeyF')fsBtn.click();
+  });
+
+  load();
+</script>
+</body>
+</html>
